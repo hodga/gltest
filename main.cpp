@@ -2,6 +2,7 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/ext.hpp>
 
 
 #include <cassert>
@@ -12,179 +13,107 @@
 #include <chrono>
 #include <array>
 
-
-#include "asset.h"
+/*
 #include "instance.h"
+#include "textureLib/texturePacker.h"
+#include "renderBatch.h"*/
+
+#include "renderEngine/renderEngine.h"
+#include "testObject.h"
 
 using namespace hwgl;
 
 // globals
-GLFWwindow* gWindow = NULL;
 
-Asset gAsset;
+TexturePacker gTexturePacker;
+
+RenderBatch gRenderBatch;
 
 std::vector<Instance> gInstances;
 
 Instance *instance;
 
-glm::mat4 gCamera;
-
 size_t bytes_allocated;
 
-void onError(int errorCode, const char *msg)
+RenderEngine gRenderEngine;
+
+std::vector<hwge::TestObject> testObjects;
+
+/*void onError(int errorCode, const char *msg)
 {
 	throw std::runtime_error(msg);
 }
 
-void loadTriangle() 
-{
-	// make and bind the VAO
-    glGenVertexArrays(1, &gAsset.vao);
-    glBindVertexArray(gAsset.vao);
-    
-    // make and bind the VBO
-    glGenBuffers(1, &gAsset.vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, gAsset.vbo);
-    
-    // Put the three triangle vertices (XYZ) and texture coordinates (UV) into the VBO
-    GLfloat vertexData[] = {
-        //  X     Y     Z       U     V
-         0.0f, 0.8f, 0.0f,   0.5f, 0.0f,
-        -0.8f,-0.8f, 0.0f,   1.0f, 1.0f,
-         0.8f,-0.8f, 0.0f,   0.0f, 1.0f,
-    };
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertexData), vertexData, GL_STATIC_DRAW);
-
-    // connect the xyz to the "vert" attribute of the vertex shader
-    glEnableVertexAttribArray(gAsset.shaderBase.attrib("vert"));
-    glVertexAttribPointer(gAsset.shaderBase.attrib("vert"), 3, GL_FLOAT, GL_FALSE, 5*sizeof(GLfloat), NULL);
-        
-    // connect the uv coords to the "vertTexCoord" attribute of the vertex shader
-    glEnableVertexAttribArray(gAsset.shaderBase.attrib("vertTexCoord"));
-    glVertexAttribPointer(gAsset.shaderBase.attrib("vertTexCoord"), 2, GL_FLOAT, GL_TRUE,  5*sizeof(GLfloat), (const GLvoid*)(3 * sizeof(GLfloat)));
-
-    // unbind the VAO
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-}
-
-void setup()
-{
-	glUseProgram(gAsset.shaderBase.programHandle);
-	GLint cameraUniformLocation = glGetUniformLocation(gAsset.shaderBase.programHandle, "cameraPostion");
-	glUniformMatrix4fv(cameraUniformLocation, 1, GL_FALSE, glm::value_ptr(glm::mat4()));
-
-	// make and bind the VAO
-    glGenVertexArrays(1, &gAsset.vao);
-    glBindVertexArray(gAsset.vao);
-    
-    // make and bind the VBO
-    glGenBuffers(1, &gAsset.vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, gAsset.vbo);
-
-    //input to shader
-    glEnableVertexAttribArray(gAsset.shaderBase.attrib("pos")); 
-  	glEnableVertexAttribArray(gAsset.shaderBase.attrib("textureCellCoord"));
-  	glEnableVertexAttribArray(gAsset.shaderBase.attrib("size"));
-
-  	glVertexAttribPointer(gAsset.shaderBase.attrib("pos"), 2, GL_FLOAT, GL_FALSE, sizeof(Instance), (GLvoid*) 0);
-  	glVertexAttribPointer(gAsset.shaderBase.attrib("textureCellCoord"), 2, GL_FLOAT, GL_FALSE, sizeof(Instance), (GLvoid*) (sizeof(float)*2));
-  	glVertexAttribPointer(gAsset.shaderBase.attrib("size"), 2, GL_FLOAT, GL_FALSE, sizeof(Instance), (GLvoid*) ((sizeof(float)*2)+(sizeof(float)*2)));
-
-  	glVertexAttribDivisor(gAsset.shaderBase.attrib("pos"), 1);
-  	glVertexAttribDivisor(gAsset.shaderBase.attrib("textureCellCoord"), 1);
-  	glVertexAttribDivisor(gAsset.shaderBase.attrib("size"), 1);
-
-  	glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-  	glUseProgram(0);
-}
-
 void loadInstances()
 {
-	glm::vec2 texCellCoord = glm::vec2(0,0);
-	glm::vec2 texSize = glm::vec2(1,1);
+	auto images = gTexturePacker.getPackedImageData();
+	unsigned pW = gTexturePacker.getPackedWidth();
+	unsigned pH = gTexturePacker.getPackedHeight();
+	int x = 0;
+	glm::vec3 pos[] = {glm::vec3(-0.5,-0.5,0),
+				glm::vec3(0.5,0.5,0),
+				glm::vec3(0.5,-0.5,0),
+				glm::vec3(-0.5,0.5,0),
+				glm::vec3(0,0,0),
+				glm::vec3(-0.5,0,0),
+				glm::vec3(0,-0.5,0),
+				glm::vec3(0.5,0,0),
+				glm::vec3(0,0.5,0)};
+	for(auto image : images)
+	{
+		cout << "image: (" << image.x << "," << image.y << ") dim: (" << image.width << "," << image.height << ")" << endl;
+		glm::vec2 texCellCoord = glm::vec2((float)image.x/pW,(float)image.y/pH);
+		glm::vec2 texSize = glm::vec2((float)image.width/pW,(float)image.height/pH);
 
-	Instance a(glm::vec2(0,0), texCellCoord, texSize);
-	gInstances.push_back(a);
+		glm::mat4 transform = glm::translate(glm::mat4(), pos[x]) * glm::scale(glm::mat4(), glm::vec3((float)image.width/pW,(float)image.height/pH, 1));
 
-	Instance b(glm::vec2(0.5,0), texCellCoord, texSize);
-	gInstances.push_back(b);
-
-	//glm::mat4 translate = glm::translate(glm::mat4(), glm::vec3(0.5,0,0)) * glm::scale(glm::mat4(), glm::vec3(0.1,0.1,1));
-	Instance c(glm::vec2(0.3,0.3), texCellCoord, texSize);
-	gInstances.push_back(c);
-	instance = &(gInstances.back());
+		Instance instance(texCellCoord, texSize, transform);
+		gInstances.push_back(instance);
+		x++;
+	}
 }
 
 void Render()
 {
+	gRenderBatch.update();
+
 	glClearColor(1, 1, 1, 1);
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	glUseProgram(gAsset.shaderBase.programHandle);
+	glUseProgram(gRenderBatch.shaderBase.programHandle);
 
-	glUniform1i(gAsset.textureLocation, 0);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, gAsset.texture->textureHandle);
-	glBindVertexArray(gAsset.vao);
+	gRenderBatch.render();
 
-	//glDrawElementsInstanced(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_INT, 0, gInstances.size());
-	glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, gInstances.size());
-
-	/*for(Instance instance : gInstances)
-	{
-		instance.Render();
-	}*/
-
-	//unbind everything
-    glBindVertexArray(0);
-	glBindTexture(GL_TEXTURE_2D, 0);
 	glUseProgram(0);
 
 	glfwSwapBuffers(gWindow);
 }
-
+*/
 static void Update(float secondsElapsed) {
 
     //move position of camera based on WASD keys, and XZ keys for up and down
-   /* const float moveSpeed = 2; //units per second
-    if(glfwGetKey(gWindow, 'S'))
+   const float moveSpeed = 2; //units per second
+    if(glfwGetKey(gRenderEngine.window, 'S'))
     {
-        instance->transform *= glm::translate(glm::mat4(), glm::vec3(0,-moveSpeed*secondsElapsed,0));
+        *testObjects[0].transform *= glm::translate(glm::mat4(), glm::vec3(0,-moveSpeed*secondsElapsed,0));
     } 
-    else if(glfwGetKey(gWindow, 'W'))
+    else if(glfwGetKey(gRenderEngine.window, 'W'))
     {
-        instance->transform *= glm::translate(glm::mat4(), glm::vec3(0,moveSpeed*secondsElapsed,0));
+        *testObjects[0].transform *= glm::translate(glm::mat4(), glm::vec3(0,moveSpeed*secondsElapsed,0));
     }
-    if(glfwGetKey(gWindow, 'A'))
+    if(glfwGetKey(gRenderEngine.window, 'A'))
     {
-        instance->transform *= glm::translate(glm::mat4(), glm::vec3(-moveSpeed*secondsElapsed,0,0));
+        *testObjects[0].transform *= glm::translate(glm::mat4(), glm::vec3(-moveSpeed*secondsElapsed,0,0));
     } 
-    else if(glfwGetKey(gWindow, 'D'))
+    else if(glfwGetKey(gRenderEngine.window, 'D'))
     {
-        instance->transform *= glm::translate(glm::mat4(), glm::vec3(moveSpeed*secondsElapsed,0,0));
-    }*/
-
-
-	glBindBuffer(GL_ARRAY_BUFFER, gAsset.vbo);
- 
-	size_t bytes_needed = sizeof(Instance) * gInstances.size();
-	if(bytes_needed > bytes_allocated) 
-	{
-		glBufferData(GL_ARRAY_BUFFER, bytes_needed, &(gInstances[0].data[0]), GL_STREAM_DRAW);
-		bytes_allocated = bytes_needed;
-	}
-	else 
-	{
-		glBufferSubData(GL_ARRAY_BUFFER, 0, bytes_needed, &(gInstances[0].data[0]));
-	}
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+        *testObjects[0].transform *= glm::translate(glm::mat4(), glm::vec3(moveSpeed*secondsElapsed,0,0));
+    }
 }
 
 int main(int argc, char*argv[])
 {
-	glfwSetErrorCallback(onError);
+	/*glfwSetErrorCallback(onError);
 	if(!glfwInit())
 	{
 		std::cout << "Error initializing glfw";
@@ -225,30 +154,74 @@ int main(int argc, char*argv[])
 		throw std::runtime_error("OpenGL 3.2 API is not available");
 	}
 
-	gAsset = Asset("shaderFiles/fragmentShader2.txt", "shaderFiles/vertexShader2.txt", "resources/MarioSMBW.png");
+	//build shader
+	ShaderBase shaderBase;
+	shaderBase.addShaderFromFile("shaderFiles/fragmentShader2.txt", GL_FRAGMENT_SHADER);
+	shaderBase.addShaderFromFile("shaderFiles/vertexShader2.txt", GL_VERTEX_SHADER);
+	shaderBase.makeProgram();
 
-	gAsset.drawType = GL_TRIANGLES;
-	gAsset.drawStart = 0;
-	gAsset.drawCount = 3;
 
-	bytes_allocated = 0;
+	//pack textures
+	gTexturePacker.addImage("resources/MarioSMBW.png");
+	gTexturePacker.addImage("resources/Bowser_-_New_Super_Mario_Bros_2.png");
+	gTexturePacker.addImage("resources/hazard.png");
+	gTexturePacker.addImage("resources/LuigiNSMBW.png");
+	gTexturePacker.addImage("resources/toad.png");
+	gTexturePacker.addImage("resources/150px-MLSS_-_Princess_Peach_Artwork.png");
+	//gTexturePacker.addImage("resources/Mario_SM64DS.png");
+	//gTexturePacker.addImage("resources/Mushroom_smas.png");
+	//gTexturePacker.addImage("resources/PMTTYDGreenBoots.png");
+	gTexturePacker.packImages();
 
-	//loadTriangle();
-	setup();
+	//load instances (using texture)
 	loadInstances();
-	
 
-	gAsset.textureLocation = glGetUniformLocation(gAsset.shaderBase.programHandle, "tex");
+	//create render batch
+	gRenderBatch = RenderBatch(gTexturePacker.getPackedImage(), 
+				   gTexturePacker.getPackedWidth(),
+				   gTexturePacker.getPackedHeight());
+
+	gRenderBatch.drawType = GL_TRIANGLES;
+	gRenderBatch.drawStart = 0;
+	gRenderBatch.drawCount = 3;
+
+	gRenderBatch.setup(shaderBase);
+	gRenderBatch.instances = gInstances;
+
+
+	instance = &(gRenderBatch.instances.back());*/
+
+	hwge::TestObject testObject("resources/MarioSMBW.png");
+	hwge::TestObject testObject2("resources/LuigiNSMBW.png");
+
+	testObjects.push_back(testObject);
+	testObjects.push_back(testObject2);
+
+	gRenderEngine.setup(testObjects);
+
+	//start rendering
 	double lastTime = glfwGetTime();
 	double lastSecond = lastTime;
 	double limitFPS = 1.0/60.0;
-	while(!glfwWindowShouldClose(gWindow))
+	
+
+	while(!glfwWindowShouldClose(gRenderEngine.window))
 	{
+		//cout << "while loop step" << glm::to_string(testObjects[0].transform) << endl;
 		glfwPollEvents();
+
+		/**testObjects[0].transform *= glm::translate(glm::mat4(), glm::vec3(0.1,0,0));
+		*testObjects[1].transform *= glm::translate(glm::mat4(), glm::vec3(0.1,0,0));
+
+		cout << "transform: " << testObjects[0].transform << endl;
+		cout << "transform2: " << testObjects[1].transform << endl;*/
+
+		*testObjects[1].transform *= glm::translate(glm::mat4(), glm::vec3(0.01,0,0));
 		
 		// update the scene based on the time elapsed since last update
         double thisTime = glfwGetTime();
         double deltaTime = thisTime - lastTime;
+
         Update((float)(deltaTime));
         lastTime = thisTime;
         
@@ -259,15 +232,17 @@ int main(int argc, char*argv[])
         }
 
         //draw one frame
-		Render();
+		//Render();
+		cout << "going to step" << endl;
+        gRenderEngine.step((float)deltaTime);
 
 		GLenum error = glGetError();
         if(error != GL_NO_ERROR)
             std::cerr << "OpenGL Error "<< error << ": " << gluErrorString(error) << std::endl;
 
 		//exit program if escape key is pressed
-        if(glfwGetKey(gWindow, GLFW_KEY_ESCAPE))
-            glfwSetWindowShouldClose(gWindow, GL_TRUE);
+        if(glfwGetKey(gRenderEngine.window, GLFW_KEY_ESCAPE))
+            glfwSetWindowShouldClose(gRenderEngine.window, GL_TRUE);
 
 
         double sleepTime = limitFPS - (glfwGetTime() - thisTime);

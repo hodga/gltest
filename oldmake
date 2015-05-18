@@ -1,0 +1,38 @@
+LIBPATH = -L"/System/Library/Frameworks/OpenGL.framework/Libraries"
+
+
+FRAMEWORK = -framework OpenGL 
+FRAMEWORK += -framework Cocoa 
+FRAMEWORK += -framework IOKit
+FRAMEWORK += -framework CoreVideo
+
+COMPILERFLAGS = -Wall -std=c++11 -stdlib=libc++
+CFLAGS = $(COMPILERFLAGS)
+LIBRARIES = -lGLEW -lGL -lglfw3 -lm -lobjc -lstdc++
+
+
+OBJECTS = main.o renderEngine.o testObject.o instance.o shaderBase.o Texture.o texturePacker.o renderBatch.o lodepng.o
+All: OpenGLTest
+
+
+OpenGLTest: $(OBJECTS)
+	$(CC) $(FRAMEWORK) $(CFLAGS) -o $@ $(LIBPATH) $(LIBRARIES) $(OBJECTS)
+
+main.o : main.cpp renderEngine/renderEngine.h testObject.h
+
+renderEngine.o : renderEngine/renderEngine.cpp renderEngine/renderTrait.h renderEngine/renderBatch.h renderEngine/instance.h renderEngine/textureLib/texturePacker.h
+
+testObject.o : testObject.cpp renderEngine/renderTrait.h
+
+instance.o : renderEngine/instance.cpp
+
+shaderBase.o : renderEngine/shaderBase.cpp
+
+texturePacker.o : renderEngine/textureLib/texturePacker.cpp renderEngine/textureLib/lodepng.h
+	$(CC) $(CFLAGS) -c renderEngine/textureLib/texturePacker.cpp
+
+Texture.o : renderEngine/textureLib/Texture.cpp renderEngine/textureLib/lodepng.h
+
+renderBatch.o : renderEngine/renderBatch.cpp renderEngine/shaderBase.h renderEngine/textureLib/Texture.h renderEngine/instance.h
+
+lodepng.o : renderEngine/textureLib/lodepng.cpp

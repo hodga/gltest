@@ -5,6 +5,7 @@ uniform mat4 cameraPostion;
 in vec2 pos;
 in vec2 textureCellCoord;
 in vec2 size;
+in mat4 transform;
 
 const vec2 vert[] = vec2[4](
 	vec2(0.5,  -0.5),
@@ -28,5 +29,5 @@ void main() {
 	vec2 uv = texCoord[gl_VertexID];
     fragTexCoord = textureCellCoord + size * uv;
 
-    gl_Position = cameraPostion * vec4(offset+pos, 0, 1);
+    gl_Position = cameraPostion * transform * vec4(offset+pos, 0, 1);
 }
