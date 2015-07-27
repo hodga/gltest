@@ -18,7 +18,7 @@ cout << "filename: " << filename << endl;
 	//only add a file once, the filename is the identifier
 	list<image_t>::iterator imageIterator = find_if(imageData.begin(), imageData.end(), [filename](const image_t& i) -> bool { return i.filename == filename;} );
 	if(imageIterator != imageData.end()) return;
-cout << "bb" << endl;
+
 	image_t subImage;
 	subImage.filename = filename;
 
@@ -26,7 +26,8 @@ cout << "bb" << endl;
 	cout << "dimensions: " << subImage.height << " : " << subImage.width << endl;
 	if(error != 0)
 	{
-		cout << "error reading file" << error << " : " << lodepng_error_text(error) << endl;
+
+		cout << "error: " << error << " : " << lodepng_error_text(error) << endl;
 		throw runtime_error("error reading image file");
 	}
 
@@ -48,13 +49,13 @@ void TexturePacker::removeImage(string filename)
 	imageData.erase(imageIterator);
 }
 
-void TexturePacker::packImages()
+void TexturePacker::packImages(string name)
 {
 	assert(packedImage.empty());
 	assert(!imageData.empty());
-	cout << "hello!" << endl;
+
 	findArrangement();
-cout << "aaa" << endl;
+	
 	packedImage.resize(packedWidth*packedHeight*4, 255);
 
 	for(auto img : imageData) 
@@ -72,12 +73,51 @@ cout << "aaa" << endl;
 				packedImage[packedIndex+1] = img.image[imageIndex+1];
 				packedImage[packedIndex+2] = img.image[imageIndex+2];
 				packedImage[packedIndex+3] = img.image[imageIndex+3];
+
+				//padding to prevent texture bleeding
+				if(i == 0)
+				{
+					unsigned packedIndex = ((x-1) *4) + (y*4) * packedWidth;
+
+					packedImage[packedIndex] = img.image[imageIndex];
+					packedImage[packedIndex+1] = img.image[imageIndex+1];
+					packedImage[packedIndex+2] = img.image[imageIndex+2];
+					packedImage[packedIndex+3] = img.image[imageIndex+3];
+				}
+				else if(i == img.width-1)
+				{
+					unsigned packedIndex = ((x+1) *4) + (y*4) * packedWidth;
+
+					packedImage[packedIndex] = img.image[imageIndex];
+					packedImage[packedIndex+1] = img.image[imageIndex+1];
+					packedImage[packedIndex+2] = img.image[imageIndex+2];
+					packedImage[packedIndex+3] = img.image[imageIndex+3];
+				}
+				if(j == 0)
+				{
+					unsigned packedIndex = (x *4) + ((y-1)*4) * packedWidth;
+
+					packedImage[packedIndex] = img.image[imageIndex];
+					packedImage[packedIndex+1] = img.image[imageIndex+1];
+					packedImage[packedIndex+2] = img.image[imageIndex+2];
+					packedImage[packedIndex+3] = img.image[imageIndex+3];
+				}
+				else if(j == img.height-1)
+				{
+					unsigned packedIndex = (x *4) + ((y+1)*4) * packedWidth;
+
+					packedImage[packedIndex] = img.image[imageIndex];
+					packedImage[packedIndex+1] = img.image[imageIndex+1];
+					packedImage[packedIndex+2] = img.image[imageIndex+2];
+					packedImage[packedIndex+3] = img.image[imageIndex+3];
+				}
+
 			}
 		}
 		img.image.clear();
 	}
-cout << "ccc" << endl;
-	unsigned error = lodepng::encode("./packed.png", packedImage, packedWidth, packedHeight);
+
+	unsigned error = lodepng::encode(string("./") + name + string(".png"), packedImage, packedWidth, packedHeight);
 	if(error != 0)
 	{
 		cout << "error reading file" << error << " : " << lodepng_error_text(error) << endl;
@@ -148,10 +188,10 @@ void TexturePacker::findArrangement()
 	while(placedImages < imageData.size())
 	{
 		placedImages = 0;
-		unsigned curX = 0, curY = 0;
-		unsigned curHeight = imageData.begin()->height;
+		unsigned curX = 1, curY = 1;
+		unsigned curHeight = imageData.begin()->height +2;
 
-		packedHeight = curY + curHeight;
+		packedHeight = curY + curHeight + 1;
 
 		for(image_t &img : imageData)
 		{
@@ -159,7 +199,7 @@ void TexturePacker::findArrangement()
 			{
 				img.x = curX;
 				img.y = curY;
-				curX += img.width;
+				curX += img.width+2;
 				placedImages++;
 
 				if(curX > packedWidth)
@@ -167,14 +207,14 @@ void TexturePacker::findArrangement()
 			}
 			else if(curY + curHeight + img.height <= s) // start from left on line below
 			{
-				img.x = 0;
+				img.x = 1;
 				img.y = curY + curHeight;
-				curX = img.width;
-				curY = curY + curHeight;
-				curHeight = img.height;
+				curX = img.width +3;
+				curY = curY + curHeight+2;
+				curHeight = img.height + 2;
 				placedImages++;
 
-				packedHeight = curY + curHeight;
+				packedHeight = curY + curHeight + 1;
 			}
 			else //if there is no space, start over with a bigger s. (probably just one time?)
 			{

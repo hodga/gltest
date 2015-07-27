@@ -1,11 +1,15 @@
 #include "instance.h"
 
-using namespace hwgl;
+/*using namespace hwgl;
 
-Instance::Instance(glm::vec2 inTextureCell, glm::vec2 inTextureSize, glm::mat4 nTransform)
+Instance::Instance() {}
+
+Instance::Instance(glm::vec2 inPos, glm::vec2 inSize, glm::vec2 inTextureCell, glm::vec2 inTextureSize)
 {
+	pos = inPos;
+	size = inSize;
 	textureCell = inTextureCell;
 	textureSize = inTextureSize;
 
-	transform = nTransform;
-}
+	//transform = nTransform;
+}*/

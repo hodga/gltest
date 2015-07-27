@@ -1,3 +1,4 @@
+VPATH = renderEngine:gameObjects:renderEngine/textureLib:gameEngine
 LIBPATH = -L"/System/Library/Frameworks/OpenGL.framework/Libraries"
 
 
@@ -10,29 +11,42 @@ COMPILERFLAGS = -Wall -std=c++11 -stdlib=libc++
 CFLAGS = $(COMPILERFLAGS)
 LIBRARIES = -lGLEW -lGL -lglfw3 -lm -lobjc -lstdc++
 
-
-OBJECTS = main.o renderEngine.o testObject.o instance.o shaderBase.o Texture.o texturePacker.o renderBatch.o lodepng.o
+OBJECTS = main.o renderEngine.o sprite.o instance.o shaderBase.o Texture.o texturePacker.o renderBatch.o lodepng.o hero.o enemy.o GameEngine.o World.o
 All: OpenGLTest
 
 
 OpenGLTest: $(OBJECTS)
 	$(CC) $(FRAMEWORK) $(CFLAGS) -o $@ $(LIBPATH) $(LIBRARIES) $(OBJECTS)
 
-main.o : main.cpp renderEngine/renderEngine.h testObject.h
+main.o : main.cpp GameEngine.h
 
-renderEngine.o : renderEngine/renderEngine.cpp renderEngine/renderTrait.h renderEngine/renderBatch.h renderEngine/instance.h renderEngine/textureLib/texturePacker.h
+GameEngine.o : GameEngine.cpp renderEngine.h sprite.h hero.h enemy.h World.h
+	$(CC) $(CFLAGS) -c gameEngine/GameEngine.cpp
 
-testObject.o : testObject.cpp renderEngine/renderTrait.h
+World.o : World.cpp renderEngine.h sprite.h
+	$(CC) $(CFLAGS) -c gameEngine/World.cpp
 
-instance.o : renderEngine/instance.cpp
+renderEngine.o : renderEngine.cpp renderBatch.h sprite.h texturePacker.h
 
-shaderBase.o : renderEngine/shaderBase.cpp
+instance.o : instance.cpp
 
-texturePacker.o : renderEngine/textureLib/texturePacker.cpp renderEngine/textureLib/lodepng.h
+sprite.o : sprite.cpp instance.h rendererConstants.h
+
+hero.o : hero.cpp GameObject.h sprite.h gameObjectConstants.h
+
+enemy.o : enemy.cpp GameObject.h sprite.h
+
+shaderBase.o : shaderBase.cpp
+
+texturePacker.o : texturePacker.cpp lodepng.h
 	$(CC) $(CFLAGS) -c renderEngine/textureLib/texturePacker.cpp
 
-Texture.o : renderEngine/textureLib/Texture.cpp renderEngine/textureLib/lodepng.h
+Texture.o : Texture.cpp lodepng.h
 
-renderBatch.o : renderEngine/renderBatch.cpp renderEngine/shaderBase.h renderEngine/textureLib/Texture.h renderEngine/instance.h
+renderBatch.o : renderBatch.cpp shaderBase.h Texture.h instance.h
 
-lodepng.o : renderEngine/textureLib/lodepng.cpp
+lodepng.o : lodepng.cpp
+
+.PHONY : clean
+clean :
+	rm *.o

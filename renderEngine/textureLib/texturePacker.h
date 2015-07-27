@@ -33,7 +33,7 @@ namespace hwgl
 			void addImage(std::string filename);
 			void removeImage(std::string filename);
 
-			void packImages();
+			void packImages(std::string name = "-");
 
 			void findImageDimensions();
 			unsigned getPackedHeight();

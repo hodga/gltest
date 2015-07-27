@@ -13,20 +13,25 @@
 
 namespace hwgl 
 {
+
+	struct cameraStruct
+	{
+		glm::vec2 pos;
+		glm::vec2 scale;
+	};
+
 	class RenderBatch 
 	{
 		public:
-			GLuint vao;
-			GLuint vbo;
-			ShaderBase shaderBase;
-			shared_ptr<Texture> texture;
-			GLint textureLocation;
-
 		    GLenum drawType;
 		    GLint drawStart;
 		    GLint drawCount;
 
+		    ShaderBase shaderBase;
+
 		    size_t bytes_allocated;
+		    
+		    cameraStruct camera;
 
 		    std::vector<Instance> instances;
 
@@ -36,5 +41,14 @@ namespace hwgl
 		    void setup(ShaderBase inShaderBase);
 		    void update();
 		    void render();
+
+		private:
+			GLuint vao;
+			GLuint vbo;
+
+			GLint cameraUniformLocation;
+			
+			shared_ptr<Texture> texture;
+			GLint textureLocation;
 	};
 }

@@ -18,9 +18,11 @@ void RenderBatch::setup(ShaderBase inShaderBase)
 {
 	shaderBase = inShaderBase;
 
+	camera.scale = glm::vec2(0.001, 0.001);
 	glUseProgram(shaderBase.programHandle);
-	GLint cameraUniformLocation = glGetUniformLocation(shaderBase.programHandle, "cameraPostion");
-	glUniformMatrix4fv(cameraUniformLocation, 1, GL_FALSE, glm::value_ptr(glm::mat4()));
+	cameraUniformLocation = glGetUniformLocation(shaderBase.programHandle, "cameraPostion");
+	
+	glUniformMatrix4fv(cameraUniformLocation, 1, GL_FALSE, glm::value_ptr(glm::translate(glm::scale(glm::mat4(), glm::vec3(camera.scale.x,camera.scale.y, 1)), glm::vec3(camera.pos.x,camera.pos.y,0)))); //camera focus
 
 	// make and bind the VAO
     glGenVertexArrays(1, &vao);
@@ -31,16 +33,23 @@ void RenderBatch::setup(ShaderBase inShaderBase)
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
     //input to shader
-  	glEnableVertexAttribArray(shaderBase.attrib("textureCellCoord"));
+  	glEnableVertexAttribArray(shaderBase.attrib("pos"));
+  	glVertexAttribPointer(shaderBase.attrib("pos"), 2, GL_FLOAT, GL_FALSE, sizeof(Instance), (GLvoid*) (sizeof(float)*0));
+  	glVertexAttribDivisor(shaderBase.attrib("pos"), 1);
+
   	glEnableVertexAttribArray(shaderBase.attrib("size"));
-
-  	glVertexAttribPointer(shaderBase.attrib("textureCellCoord"), 2, GL_FLOAT, GL_FALSE, sizeof(Instance), (GLvoid*) (sizeof(float)*0));
   	glVertexAttribPointer(shaderBase.attrib("size"), 2, GL_FLOAT, GL_FALSE, sizeof(Instance), (GLvoid*) (sizeof(float)*2));
-
-  	glVertexAttribDivisor(shaderBase.attrib("textureCellCoord"), 1);
   	glVertexAttribDivisor(shaderBase.attrib("size"), 1);
 
-  	//bind mat4
+  	glEnableVertexAttribArray(shaderBase.attrib("textureCellCoord"));
+  	glVertexAttribPointer(shaderBase.attrib("textureCellCoord"), 2, GL_FLOAT, GL_FALSE, sizeof(Instance), (GLvoid*) (sizeof(float)*4));
+  	glVertexAttribDivisor(shaderBase.attrib("textureCellCoord"), 1);
+
+  	glEnableVertexAttribArray(shaderBase.attrib("textureCellSize"));
+  	glVertexAttribPointer(shaderBase.attrib("textureCellSize"), 2, GL_FLOAT, GL_FALSE, sizeof(Instance), (GLvoid*) (sizeof(float)*6));
+  	glVertexAttribDivisor(shaderBase.attrib("textureCellSize"), 1);
+
+  	/*bind mat4
 
 	int pos = shaderBase.attrib("transform");
 	int pos1 = pos + 0; 
@@ -63,7 +72,7 @@ void RenderBatch::setup(ShaderBase inShaderBase)
 	glVertexAttribDivisor(pos3, 1);
 	glVertexAttribDivisor(pos4, 1);
 
-  	//----
+  	*///----
 
   	glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -76,21 +85,14 @@ void RenderBatch::update()
 {
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
-	size_t bytes_needed = sizeof(Instance) * instances.size();
-	if(bytes_needed > bytes_allocated) 
-	{
-		glBufferData(GL_ARRAY_BUFFER, bytes_needed, &(instances[0].textureCell), GL_STREAM_DRAW);
-		bytes_allocated = bytes_needed;
-	}
-	else 
-	{
-		glBufferSubData(GL_ARRAY_BUFFER, 0, bytes_needed, &(instances[0].textureCell));
-	}
+	glBufferData(GL_ARRAY_BUFFER, sizeof(Instance) * instances.size(), &(instances[0].pos), GL_STREAM_DRAW);
+
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void RenderBatch::render() 
 {
+	glUniformMatrix4fv(cameraUniformLocation, 1, GL_FALSE, glm::value_ptr(glm::translate(glm::scale(glm::mat4(), glm::vec3(camera.scale.x,camera.scale.y, 1)), glm::vec3(camera.pos.x,camera.pos.y,0)))); //camera focus
 	glUniform1i(textureLocation, 0);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texture->textureHandle);
